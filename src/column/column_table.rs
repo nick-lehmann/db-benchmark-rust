@@ -92,7 +92,7 @@ mod tests {
     use super::*;
     use crate::{
         data::generate_data,
-        filters::{Equal, Filters, GreaterThan},
+        filters::{Equal, Filters, GreaterEqual},
     };
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
         let data = generate_data::<u32, 3>(10);
         let filters: Filters<u32, u32> = vec![
             Box::new(Equal { index: 0, value: 5 }),
-            Box::new(GreaterThan { index: 1, value: 3 }),
+            Box::new(GreaterEqual { index: 1, value: 3 }),
         ];
         let expected = vec![[5, 5, 5]];
 

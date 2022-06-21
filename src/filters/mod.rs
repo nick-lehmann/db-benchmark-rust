@@ -1,15 +1,19 @@
 mod eq;
 pub use eq::Equal;
 mod ge;
-pub use ge::GreaterThan;
-mod gt;
+pub use ge::GreaterEqual;
+// mod gt;
 mod le;
-mod lt;
-mod ne;
+pub use le::LessEqual;
+// mod lt;
+// mod ne;
 
 pub type Filters<T, V> = Vec<Box<dyn Filter<T, V>>>;
 
-pub trait Filter<T, Value> {
-    fn compare(&self, value: T) -> bool;
+pub trait IndexContainer {
     fn index(&self) -> usize;
+}
+
+pub trait Filter<T, Value>: IndexContainer {
+    fn compare(&self, value: T) -> bool;
 }
