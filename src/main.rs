@@ -1,27 +1,36 @@
-#![feature(int_log)]
+#![feature(int_log, stdsimd)]
 pub mod column;
 pub mod data;
 pub mod filters;
 pub mod row;
 pub mod table;
 
-use table::Table;
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+unsafe fn calculate() {
+    let ones: __m512i = _mm512_set1_epi32(1);
+    let values = [1, 2, 1, 3, 1, 4, 1, 5, 1, 6, 1, 7, 1, 8, 1, 9];
+
+    let value_register = _mm512_load_epi32(&values[0]);
+    let mask = _mm512_int2mask(i32::MAX);
+
+    let result = _mm512_mask_cmp_epi32_mask::<_MM_CMPINT_EQ>(mask, ones, value_register);
+    println!("{:#016b}", result);
+}
 
 fn main() {
-    let data = data::generate_data::<u32, 3>(10);
-
-    let row_table = row::RowTable::<u32, 3>::new(data);
-
-    let mut filters: Vec<Box<dyn filters::Filter<u32, u32>>> = Vec::new();
-    filters.push(Box::new(filters::Equal { index: 0, value: 5 }));
-
-    let result = row_table.query([0, 1], filters);
-
-    println!("Results:");
-    for entry in &result {
-        println!("{:?}", entry);
+    if is_x86_feature_detected!("avx512f")
+        && is_x86_feature_detected!("avx512cd")
+        && is_x86_feature_detected!("avx512er")
+        && is_x86_feature_detected!("avx512pf")
+    {
+        // Safe because we already checked that we have
+        // AVX instruction set.
+        unsafe { calculate() }
+    } else {
+        panic!("AVX is not supported");
     }
-
-    println!("Table:");
-    row_table.print();
 }
