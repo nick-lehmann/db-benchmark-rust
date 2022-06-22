@@ -1,31 +1,24 @@
-mod column_table;
 use std::ops::Index;
 
-pub use column_table::ColumnTable;
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
-mod row_table;
-pub use row_table::RowTable;
+mod column;
+pub use column::ColumnTable;
+mod row;
+pub use row::RowTable;
 
 // mod pax_table;
 // pub use pax_table::PaxTable;
 
-use crate::filters::Filters;
+use crate::filters::{ScalarFilters, VectorFilters};
 
-pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize>:
+pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize, const AVX: bool = true>:
     Index<usize, Output = [T; ATTRS]>
 {
     fn new(data: Vec<[T; ATTRS]>) -> Self;
-
-    fn filter(&self, filters: Filters<T, T>) -> Vec<[T; ATTRS]> {
-        let projection: [usize; ATTRS] = (0..ATTRS).collect::<Vec<_>>().try_into().unwrap();
-        self.query(projection, filters)
-    }
-
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: Filters<T, T>,
-    ) -> Vec<[T; PROJECTION]>;
 
     /// Returns the number of rows in the table.
     fn len(&self) -> usize;
@@ -42,4 +35,20 @@ pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize>:
             println!("");
         }
     }
+}
+
+pub trait ScalarQuery<Data> {
+    fn query<const PROJECTION: usize>(
+        &self,
+        projection: [usize; PROJECTION],
+        filters: ScalarFilters<Data, Data>,
+    ) -> Vec<[Data; PROJECTION]>;
+}
+
+pub trait QueryVectorised<Data> {
+    fn query<const PROJECTION: usize>(
+        &self,
+        projection: [usize; PROJECTION],
+        filters: VectorFilters<Data, __m512i, __mmask8>,
+    ) -> Vec<[Data; PROJECTION]>;
 }

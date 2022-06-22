@@ -1,5 +1,4 @@
-use super::Table;
-use crate::filters::Filters;
+use crate::tables::Table;
 use std::ops::Index;
 
 pub struct RowTable<T, const ATTRS: usize> {
@@ -24,37 +23,6 @@ impl<T: std::fmt::Debug + Copy + Default, const ATTRS: usize> Table<T, ATTRS>
     fn len(&self) -> usize {
         self.data.len()
     }
-
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: Filters<T, T>,
-    ) -> Vec<[T; PROJECTION]> {
-        let mut result: Vec<[T; PROJECTION]> = Vec::new();
-
-        for index in 0..=self.len() - 1 {
-            let mut match_all = true;
-            let row = &self[index];
-
-            for filter in &filters {
-                let cell = row.get(filter.index()).unwrap();
-                if !filter.compare(cell.clone()) {
-                    match_all = false;
-                    break;
-                }
-            }
-
-            if match_all {
-                let mut new_row = [T::default(); PROJECTION];
-                for i in 0..PROJECTION {
-                    new_row[i] = row.get(projection[i]).unwrap().clone();
-                }
-                result.push(new_row);
-            }
-        }
-
-        result
-    }
 }
 
 #[cfg(test)]
@@ -62,17 +30,18 @@ mod tests {
     use super::*;
     use crate::{
         data::generate_data,
-        filters::{Equal, Filters, GreaterEqual},
+        filters::{Equal, GreaterEqual, ScalarFilters},
+        tables::ScalarQuery,
     };
 
     #[test]
     fn test_basic_filters_only() {
         let data = generate_data::<i32, 3>(10);
-        let filters: Filters<i32, i32> = vec![Box::new(Equal::<i32>::new(0, 5))];
+        let filters: ScalarFilters<i32, i32> = vec![Box::new(Equal::<i32>::new(0, 5))];
         let expected = vec![[5, 5, 5]];
 
         let row_table = RowTable::new(data);
-        let result = row_table.filter(filters);
+        let result = row_table.query([0, 1, 2], filters);
 
         assert_eq!(result, expected);
     }
@@ -80,14 +49,14 @@ mod tests {
     #[test]
     fn test_complex_filters() {
         let data = generate_data::<i32, 3>(10);
-        let filters: Filters<i32, i32> = vec![
+        let filters: ScalarFilters<i32, i32> = vec![
             Box::new(Equal::<i32>::new(0, 5)),
             Box::new(GreaterEqual::<i32>::new(1, 3)),
         ];
         let expected = vec![[5, 5, 5]];
 
         let row_table = RowTable::new(data);
-        let result = row_table.filter(filters);
+        let result = row_table.query([0, 1, 2], filters);
 
         assert_eq!(result, expected);
     }
@@ -95,7 +64,7 @@ mod tests {
     #[test]
     fn test_projection_only() {
         let data = generate_data::<i32, 3>(3);
-        let filters: Filters<i32, i32> = vec![];
+        let filters: ScalarFilters<i32, i32> = vec![];
         let projection = [0, 1];
         let expected = vec![[0, 0], [1, 1], [2, 2]];
 

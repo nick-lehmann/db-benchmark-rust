@@ -1,9 +1,8 @@
-use super::Table;
-use crate::filters::{Filter, Filters};
+use crate::tables::Table;
 use std::ops::Index;
 
 pub struct ColumnTable<T, const ATTRS: usize> {
-    data: [Vec<T>; ATTRS],
+    pub data: [Vec<T>; ATTRS],
 }
 
 impl<T, const ATTRS: usize> Index<usize> for ColumnTable<T, ATTRS> {
@@ -32,55 +31,6 @@ impl<T: std::fmt::Debug + Copy + Default, const ATTRS: usize> Table<T, ATTRS>
 
     fn len(&self) -> usize {
         self.data[0].len()
-    }
-
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: Filters<T, T>,
-    ) -> Vec<[T; PROJECTION]> {
-        let mut indices: Vec<usize> = (0..=self.len() - 1).collect();
-
-        for (column_index, column) in self.data.iter().enumerate() {
-            let filter_for_current_columns: Vec<&Box<dyn Filter<T, T>>> = filters
-                .iter()
-                .filter(|filter| filter.index() == column_index)
-                .collect();
-
-            if filter_for_current_columns.len() == 0 {
-                break;
-            }
-
-            let mut new_indices: Vec<usize> = Vec::new();
-            for index in &indices {
-                let mut match_all = true;
-                for filter in &filter_for_current_columns {
-                    let cell = column.get(index.clone()).unwrap();
-
-                    if !filter.compare(cell.clone()) {
-                        match_all = false;
-                        break;
-                    }
-                }
-
-                if match_all {
-                    new_indices.push(index.clone());
-                }
-            }
-
-            indices = new_indices;
-        }
-
-        let mut result: Vec<[T; PROJECTION]> = Vec::new();
-        for index in indices {
-            let mut row = [T::default(); PROJECTION];
-            for column in projection {
-                row[column] = self.data[column].get(index).unwrap().clone();
-            }
-            result.push(row);
-        }
-
-        result
     }
 }
 

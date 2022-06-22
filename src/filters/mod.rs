@@ -8,16 +8,16 @@ pub use le::LessEqual;
 // mod lt;
 // mod ne;
 
-pub type Filters<T, V> = Vec<Box<dyn Filter<T, V>>>;
-
 pub trait IndexContainer {
     fn index(&self) -> usize;
 }
 
-pub trait Filter<Value, Input>: IndexContainer {
+pub type ScalarFilters<Value, Input> = Vec<Box<dyn ScalarFilter<Value, Input>>>;
+pub trait ScalarFilter<Value, Input>: IndexContainer {
     fn compare(&self, value: Input) -> bool;
 }
 
-pub trait MaskedFilter<Input, Value, Mask> {
+pub type VectorFilters<Value, Input, Mask> = Vec<Box<dyn VectorFilter<Value, Input, Mask>>>;
+pub trait VectorFilter<Input, Value, Mask> {
     fn compare(&self, value: Input, mask: Mask) -> Mask;
 }

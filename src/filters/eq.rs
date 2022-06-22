@@ -1,4 +1,4 @@
-use super::{Filter, IndexContainer, MaskedFilter};
+use super::{IndexContainer, ScalarFilter, VectorFilter};
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -47,7 +47,7 @@ impl<Value> IndexContainer for Equal<Value> {
     }
 }
 
-impl<Value, Input> Filter<Value, Input> for Equal<Value>
+impl<Value, Input> ScalarFilter<Value, Input> for Equal<Value>
 where
     Input: PartialEq<Value>,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl MaskedFilter<__m512i, i32, __mmask16> for Equal<i32> {
+impl VectorFilter<__m512i, i32, __mmask16> for Equal<i32> {
     fn compare(&self, value: __m512i, mask: __mmask16) -> __mmask16 {
         unsafe {
             _mm512_mask_cmpeq_epi32_mask(
@@ -69,7 +69,7 @@ impl MaskedFilter<__m512i, i32, __mmask16> for Equal<i32> {
     }
 }
 
-impl MaskedFilter<__m512i, i64, __mmask8> for Equal<i64> {
+impl VectorFilter<__m512i, i64, __mmask8> for Equal<i64> {
     fn compare(&self, value: __m512i, mask: __mmask8) -> __mmask8 {
         unsafe {
             _mm512_mask_cmpeq_epi64_mask(
