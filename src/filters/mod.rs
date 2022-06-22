@@ -14,6 +14,10 @@ pub trait IndexContainer {
     fn index(&self) -> usize;
 }
 
-pub trait Filter<T, Value>: IndexContainer {
-    fn compare(&self, value: T) -> bool;
+pub trait Filter<Value, Input>: IndexContainer {
+    fn compare(&self, value: Input) -> bool;
+}
+
+pub trait MaskedFilter<Input, Value, Mask> {
+    fn compare(&self, value: Input, mask: Mask) -> Mask;
 }

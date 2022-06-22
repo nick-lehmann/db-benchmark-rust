@@ -1,4 +1,13 @@
+mod column_table;
 use std::ops::Index;
+
+pub use column_table::ColumnTable;
+
+mod row_table;
+pub use row_table::RowTable;
+
+// mod pax_table;
+// pub use pax_table::PaxTable;
 
 use crate::filters::Filters;
 

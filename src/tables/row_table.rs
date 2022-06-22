@@ -1,6 +1,6 @@
+use super::Table;
+use crate::filters::Filters;
 use std::ops::Index;
-
-use crate::{filters::Filters, table::Table};
 
 pub struct RowTable<T, const ATTRS: usize> {
     data: Vec<[T; ATTRS]>,
@@ -67,11 +67,11 @@ mod tests {
 
     #[test]
     fn test_basic_filters_only() {
-        let data = generate_data::<u32, 3>(10);
-        let filters: Filters<u32, u32> = vec![Box::new(Equal { index: 0, value: 5 })];
+        let data = generate_data::<i32, 3>(10);
+        let filters: Filters<i32, i32> = vec![Box::new(Equal::<i32>::new(0, 5))];
         let expected = vec![[5, 5, 5]];
 
-        let row_table = RowTable::<u32, 3>::new(data);
+        let row_table = RowTable::new(data);
         let result = row_table.filter(filters);
 
         assert_eq!(result, expected);
@@ -79,14 +79,14 @@ mod tests {
 
     #[test]
     fn test_complex_filters() {
-        let data = generate_data::<u32, 3>(10);
-        let filters: Filters<u32, u32> = vec![
-            Box::new(Equal { index: 0, value: 5 }),
-            Box::new(GreaterEqual { index: 1, value: 3 }),
+        let data = generate_data::<i32, 3>(10);
+        let filters: Filters<i32, i32> = vec![
+            Box::new(Equal::<i32>::new(0, 5)),
+            Box::new(GreaterEqual::<i32>::new(1, 3)),
         ];
         let expected = vec![[5, 5, 5]];
 
-        let row_table = RowTable::<u32, 3>::new(data);
+        let row_table = RowTable::new(data);
         let result = row_table.filter(filters);
 
         assert_eq!(result, expected);
@@ -94,12 +94,12 @@ mod tests {
 
     #[test]
     fn test_projection_only() {
-        let data = generate_data::<u32, 3>(3);
-        let filters: Filters<u32, u32> = vec![];
+        let data = generate_data::<i32, 3>(3);
+        let filters: Filters<i32, i32> = vec![];
         let projection = [0, 1];
         let expected = vec![[0, 0], [1, 1], [2, 2]];
 
-        let row_table = RowTable::<u32, 3>::new(data);
+        let row_table = RowTable::new(data);
         let result = row_table.query(projection, filters);
 
         assert_eq!(result, expected)
