@@ -23,6 +23,12 @@ pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize, const AVX: bool =
     /// Returns the number of rows in the table.
     fn len(&self) -> usize;
 
+    fn project<const COLUMNS: usize>(
+        &self,
+        projection: [usize; COLUMNS],
+        indices: &[usize],
+    ) -> Vec<[T; COLUMNS]>;
+
     fn print(&self) {
         let len = self.len();
         let index_width = (len.log10() + 1) as usize;
@@ -38,17 +44,9 @@ pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize, const AVX: bool =
 }
 
 pub trait ScalarQuery<Data> {
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: ScalarFilters<Data, Data>,
-    ) -> Vec<[Data; PROJECTION]>;
+    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32>;
 }
 
 pub trait VectorisedQuery<Data> {
-    unsafe fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: VectorFilters<__m512i, Data, __mmask16>,
-    ) -> Vec<[Data; PROJECTION]>;
+    unsafe fn filter(&self, filters: VectorFilters<__m512i, Data, __mmask16>) -> Vec<i32>;
 }

@@ -8,12 +8,8 @@ use super::ColumnTable;
 impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Data>
     for ColumnTable<Data, ATTRS>
 {
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: ScalarFilters<Data, Data>,
-    ) -> Vec<[Data; PROJECTION]> {
-        let mut indices: Vec<usize> = (0..=self.len() - 1).collect();
+    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32> {
+        let mut indices: Vec<i32> = (0i32..=self.len() as i32 - 1).collect();
 
         for (column_index, column) in self.data.iter().enumerate() {
             let filter_for_current_columns: Vec<&Box<dyn ScalarFilter<Data, Data>>> = filters
@@ -25,11 +21,11 @@ impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Dat
                 break;
             }
 
-            let mut new_indices: Vec<usize> = Vec::new();
+            let mut new_indices: Vec<i32> = Vec::new();
             for index in &indices {
                 let mut match_all = true;
                 for filter in &filter_for_current_columns {
-                    let cell = column.get(index.clone()).unwrap();
+                    let cell = column.get(index.clone() as usize).unwrap();
 
                     if !filter.compare(cell.clone()) {
                         match_all = false;
@@ -45,15 +41,6 @@ impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Dat
             indices = new_indices;
         }
 
-        let mut result: Vec<[Data; PROJECTION]> = Vec::new();
-        for index in indices {
-            let mut row = [Data::default(); PROJECTION];
-            for column in projection {
-                row[column] = self.data[column].get(index).unwrap().clone();
-            }
-            result.push(row);
-        }
-
-        result
+        indices
     }
 }

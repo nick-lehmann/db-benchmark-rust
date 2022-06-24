@@ -1,5 +1,8 @@
 use super::ColumnTable;
-use crate::{filters::VectorFilter, tables::VectorisedQuery};
+use crate::{
+    filters::{VectorFilter, VectorFilters},
+    tables::VectorisedQuery,
+};
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -7,23 +10,21 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
-    unsafe fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: crate::filters::VectorFilters<__m512i, i32, __mmask16>,
-    ) -> Vec<[i32; PROJECTION]> {
-        let rows = self.data[0].len();
-        // let mut indices = vec![0i32; rows].into_boxed_slice();
-        let mut indices = [0i32; 100];
+    unsafe fn filter(&self, filters: VectorFilters<__m512i, i32, __mmask16>) -> Vec<i32> {
+        let chunk_size = 16;
 
+        let rows = self.data[0].len();
+        // Stores the indices of the rows which have passed all filters that were already applied.
+        // Adding `chunk_size` elements in the end is a hack to make sure we do not access invalid memory
+        // when gathering the indices.
+        let mut indices = vec![0i32; rows + chunk_size].into_boxed_slice();
         // Number of indices for the rows that matched all filters already checked.
         // Since no filters have been applied yet, this is the number of rows.
         let mut indices_counter: usize = rows;
 
+        let ones_register = _mm512_set1_epi32(1);
+
         let mut first_run = true;
-
-        let chunk_size = 16;
-
         for (column_index, column) in self.data.iter().enumerate() {
             let filter_for_current_columns: Vec<&Box<dyn VectorFilter<__m512i, i32, __mmask16>>> =
                 filters
@@ -51,6 +52,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                         (indices_register, data_register)
                     }
                     false => {
+                        // This line is why we added `chunk_size` elements to the end of `indices`.
                         let indices_block =
                             &indices[new_indices_counter..new_indices_counter + chunk_size];
                         let indices_register = create_indices_register32_from_slice(indices_block);
@@ -79,26 +81,14 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                 );
                 println!("Current indices: {:?}", indices);
 
-                let all = _mm512_set1_epi32(1);
-                let added = _mm512_mask_reduce_add_epi32(match_mask, all) as usize;
+                let added = _mm512_mask_reduce_add_epi32(match_mask, ones_register) as usize;
                 new_indices_counter += added;
                 first_run = false;
             }
             indices_counter = new_indices_counter;
         }
 
-        println!("{} rows remain", indices_counter);
-
-        let mut result: Vec<[i32; PROJECTION]> = Vec::new();
-        for index in indices.iter().take(indices_counter) {
-            let mut row = [0i32; PROJECTION];
-            for column in projection {
-                row[column] = self.data[column][index.clone() as usize].clone();
-            }
-            result.push(row);
-        }
-
-        result
+        indices[..indices_counter].to_vec()
     }
 }
 
@@ -106,7 +96,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
 mod tests {
     use crate::{
         data::generate_data,
-        filters::{Equal, GreaterEqual, LessEqual, VectorFilter, VectorFilters},
+        filters::{Equal, GreaterEqual, LessEqual, VectorFilters},
         tables::{ColumnTable, Table, VectorisedQuery},
     };
 
@@ -115,10 +105,8 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
 
-    use super::create_indices_register32;
-
     #[test]
-    fn test_basic_filters_only() {
+    fn test_basic_filters() {
         let chunk_size = 16;
         let lengths = [chunk_size / 2, chunk_size - 1, chunk_size];
 
@@ -126,20 +114,19 @@ mod tests {
             let data = generate_data::<i32, 3>(length);
             let filters: VectorFilters<__m512i, i32, __mmask16> =
                 vec![Box::new(LessEqual::<i32>::new(0, 1))];
-            let expected = vec![[0, 0, 0], [1, 1, 1]];
+            let expected = vec![0, 1];
 
             let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.query([0, 1, 2], filters) };
+            let result = unsafe { row_table.filter(filters) };
 
             assert_eq!(result, expected);
         }
     }
 
     #[test]
-    fn test_multiple_filters_only() {
+    fn test_multiple_filters() {
         let chunk_size = 16;
         let lengths = [chunk_size / 2, chunk_size - 1, chunk_size];
-        // let lengths = [chunk_size];
 
         for length in lengths {
             let data = generate_data::<i32, 3>(length);
@@ -148,52 +135,12 @@ mod tests {
                 Box::new(GreaterEqual::<i32>::new(1, 1)),
                 Box::new(Equal::<i32>::new(2, 2)),
             ];
-            let expected = vec![[2, 2, 2]];
+            let expected = vec![2];
 
             let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.query([0, 1, 2], filters) };
+            let result = unsafe { row_table.filter(filters) };
 
             assert_eq!(result, expected);
-        }
-    }
-
-    #[test]
-    fn test_playground() {
-        unsafe {
-            // let data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-            let data = [0, 1, 2, 3, 4, 5, 6, 7];
-            let mut indices = [0i32; 16];
-
-            let filter = Equal::<i32>::new(0, 2);
-            // let mut match_mask: u16 = 0b1111_1111_1111_1111;
-            let offset = 8;
-            let mut match_mask: u16 = (0b1111_1111_1111_1111) >> offset;
-
-            let indices_register = create_indices_register32(0);
-            let data_register = _mm512_loadu_si512(&data[0]);
-
-            let data_register_content: [i32; 16] = std::mem::transmute(data_register);
-            println!("Data register: {:?}", data_register_content);
-
-            match_mask = VectorFilter::<__m512i, i32, __mmask16>::compare(
-                &filter,
-                data_register,
-                match_mask,
-            );
-            println!("Match mask after filter: {:b}", match_mask);
-
-            _mm512_mask_compressstoreu_epi32(
-                &mut indices[0] as *mut _ as *mut u8,
-                match_mask,
-                indices_register,
-            );
-            println!("Current indices: {:?}", indices);
-
-            let expected_indices = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-            assert_eq!(indices, expected_indices);
-
-            // let all = _mm512_set1_epi32(1);
-            // let added = _mm512_mask_reduce_add_epi32(match_mask, all) as usize;
         }
     }
 }

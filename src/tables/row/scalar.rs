@@ -8,12 +8,8 @@ use super::RowTable;
 impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Data>
     for RowTable<Data, ATTRS>
 {
-    fn query<const PROJECTION: usize>(
-        &self,
-        projection: [usize; PROJECTION],
-        filters: ScalarFilters<Data, Data>,
-    ) -> Vec<[Data; PROJECTION]> {
-        let mut result: Vec<[Data; PROJECTION]> = Vec::new();
+    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32> {
+        let mut indices: Vec<i32> = vec![];
 
         for index in 0..=self.len() - 1 {
             let mut match_all = true;
@@ -28,14 +24,10 @@ impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Dat
             }
 
             if match_all {
-                let mut new_row = [Data::default(); PROJECTION];
-                for i in 0..PROJECTION {
-                    new_row[i] = row.get(projection[i]).unwrap().clone();
-                }
-                result.push(new_row);
+                indices.push(index as i32);
             }
         }
 
-        result
+        indices
     }
 }
