@@ -15,7 +15,7 @@ pub use row::RowTable;
 
 use crate::filters::{ScalarFilters, VectorFilters};
 
-pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize, const AVX: bool = true>:
+pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize>:
     Index<usize, Output = [T; ATTRS]>
 {
     fn new(data: Vec<[T; ATTRS]>) -> Self;
