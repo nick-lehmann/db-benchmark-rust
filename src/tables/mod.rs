@@ -45,10 +45,10 @@ pub trait ScalarQuery<Data> {
     ) -> Vec<[Data; PROJECTION]>;
 }
 
-pub trait QueryVectorised<Data> {
-    fn query<const PROJECTION: usize>(
+pub trait VectorisedQuery<Data> {
+    unsafe fn query<const PROJECTION: usize>(
         &self,
         projection: [usize; PROJECTION],
-        filters: VectorFilters<Data, __m512i, __mmask8>,
+        filters: VectorFilters<__m512i, Data, __mmask16>,
     ) -> Vec<[Data; PROJECTION]>;
 }

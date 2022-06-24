@@ -1,8 +1,9 @@
 use crate::tables::Table;
+use aligned::{Aligned, A64};
 use std::ops::Index;
 
 pub struct ColumnTable<T, const ATTRS: usize> {
-    pub data: [Vec<T>; ATTRS],
+    pub data: Aligned<A64, [Vec<T>; ATTRS]>,
 }
 
 impl<T, const ATTRS: usize> Index<usize> for ColumnTable<T, ATTRS> {
@@ -26,7 +27,9 @@ impl<T: std::fmt::Debug + Copy + Default, const ATTRS: usize> Table<T, ATTRS>
             }
         }
 
-        ColumnTable { data: column_data }
+        ColumnTable {
+            data: Aligned(column_data),
+        }
     }
 
     fn len(&self) -> usize {

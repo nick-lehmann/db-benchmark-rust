@@ -17,7 +17,7 @@ pub trait ScalarFilter<Value, Input>: IndexContainer {
     fn compare(&self, value: Input) -> bool;
 }
 
-pub type VectorFilters<Value, Input, Mask> = Vec<Box<dyn VectorFilter<Value, Input, Mask>>>;
-pub trait VectorFilter<Input, Value, Mask> {
+pub type VectorFilters<Input, Value, Mask> = Vec<Box<dyn VectorFilter<Input, Value, Mask>>>;
+pub trait VectorFilter<Input, Value, Mask>: IndexContainer {
     fn compare(&self, value: Input, mask: Mask) -> Mask;
 }
