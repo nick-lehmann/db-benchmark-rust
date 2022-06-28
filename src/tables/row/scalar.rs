@@ -8,14 +8,14 @@ use super::RowTable;
 impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Data>
     for RowTable<Data, ATTRS>
 {
-    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32> {
+    fn filter(&self, filters: &ScalarFilters<Data, Data>) -> Vec<i32> {
         let mut indices: Vec<i32> = vec![];
 
         for index in 0..=self.len() - 1 {
             let mut match_all = true;
             let row = &self[index];
 
-            for filter in &filters {
+            for filter in filters {
                 let cell = row.get(filter.index()).unwrap();
                 if !filter.compare(cell.clone()) {
                     match_all = false;

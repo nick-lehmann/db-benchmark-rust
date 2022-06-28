@@ -1,3 +1,5 @@
+use log::debug;
+
 use super::ColumnTable;
 use crate::{
     filters::{VectorFilter, VectorFilters},
@@ -10,14 +12,15 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 
 impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
-    unsafe fn filter(&self, filters: VectorFilters<__m512i, i32, __mmask16>) -> Vec<i32> {
+    unsafe fn filter(&self, filters: &VectorFilters<__m512i, i32, __mmask16>) -> Vec<i32> {
         let chunk_size = 16;
-
         let rows = self.data[0].len();
+
         // Stores the indices of the rows which have passed all filters that were already applied.
         // Adding `chunk_size` elements in the end is a hack to make sure we do not access invalid memory
         // when gathering the indices.
         let mut indices = vec![0i32; rows + chunk_size].into_boxed_slice();
+
         // Number of indices for the rows that matched all filters already checked.
         // Since no filters have been applied yet, this is the number of rows.
         let mut indices_counter: usize = rows;
@@ -38,13 +41,6 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
 
             let mut new_indices_counter = 0;
             for index in (0..indices_counter - 1).step_by(chunk_size) {
-                let remaining_elements = rows - index;
-                let shift = match remaining_elements >= chunk_size {
-                    true => 0,
-                    false => chunk_size - remaining_elements,
-                };
-                let mut match_mask: u16 = 0b1111_1111_1111_1111 >> shift;
-
                 let (indices_register, data_register) = match first_run {
                     true => {
                         let indices_register = create_indices_register32(index as i32);
@@ -73,10 +69,17 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                     std::mem::transmute::<__m512i, [i32; 16]>(indices_register)
                 );
 
-                for filter in &filter_for_current_columns {
-                    match_mask = filter.compare(data_register, match_mask);
-                }
-                println!("Match mask: {:b}", match_mask);
+                let remaining_elements = rows - index;
+                let shift = match remaining_elements >= chunk_size {
+                    true => 0,
+                    false => chunk_size - remaining_elements,
+                };
+
+                let match_mask = filter_for_current_columns
+                    .iter()
+                    .fold(0b1111_1111_1111_1111 >> shift, |mask, filter| {
+                        filter.compare(data_register, mask)
+                    });
 
                 _mm512_mask_compressstoreu_epi32(
                     &mut indices[new_indices_counter] as *mut i32 as *mut u8,
@@ -112,7 +115,9 @@ mod tests {
     #[test]
     fn test_basic_filters() {
         let chunk_size = 16;
-        let lengths = [chunk_size / 2, chunk_size - 1, chunk_size];
+        // let lengths = [chunk_size / 2, chunk_size - 1, chunk_size, 1_000_000];
+        // let lengths = [chunk_size, 1_000_000];
+        let lengths = [chunk_size];
 
         for length in lengths {
             let data = generate_data::<i32, 3>(length);
@@ -121,7 +126,7 @@ mod tests {
             let expected = vec![0, 1];
 
             let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.filter(filters) };
+            let result = unsafe { row_table.filter(&filters) };
 
             assert_eq!(result, expected);
         }
@@ -142,13 +147,14 @@ mod tests {
             let expected = vec![2];
 
             let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.filter(filters) };
+            let result = unsafe { row_table.filter(&filters) };
 
             assert_eq!(result, expected);
         }
     }
 }
 
+#[inline(always)]
 unsafe fn create_indices_register32(index: i32) -> __m512i {
     _mm512_set_epi32(
         index + 15,
@@ -170,6 +176,7 @@ unsafe fn create_indices_register32(index: i32) -> __m512i {
     )
 }
 
+#[inline(always)]
 unsafe fn create_indices_register32_from_slice(slice: &[i32]) -> __m512i {
     _mm512_set_epi32(
         slice[15], slice[14], slice[13], slice[12], slice[11], slice[10], slice[9], slice[8],

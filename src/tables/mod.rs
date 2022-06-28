@@ -44,9 +44,9 @@ pub trait Table<T: std::fmt::Debug + Copy, const ATTRS: usize>:
 }
 
 pub trait ScalarQuery<Data> {
-    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32>;
+    fn filter(&self, filters: &ScalarFilters<Data, Data>) -> Vec<i32>;
 }
 
 pub trait VectorisedQuery<Data> {
-    unsafe fn filter(&self, filters: VectorFilters<__m512i, Data, __mmask16>) -> Vec<i32>;
+    unsafe fn filter(&self, filters: &VectorFilters<__m512i, Data, __mmask16>) -> Vec<i32>;
 }

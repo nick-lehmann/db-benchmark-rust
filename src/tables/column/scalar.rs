@@ -8,7 +8,7 @@ use super::ColumnTable;
 impl<Data: std::fmt::Debug + Copy + Default, const ATTRS: usize> ScalarQuery<Data>
     for ColumnTable<Data, ATTRS>
 {
-    fn filter(&self, filters: ScalarFilters<Data, Data>) -> Vec<i32> {
+    fn filter(&self, filters: &ScalarFilters<Data, Data>) -> Vec<i32> {
         let mut indices: Vec<i32> = (0i32..=self.len() as i32 - 1).collect();
 
         for (column_index, column) in self.data.iter().enumerate() {

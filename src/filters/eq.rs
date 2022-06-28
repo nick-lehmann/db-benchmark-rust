@@ -57,6 +57,7 @@ where
 }
 
 impl VectorFilter<__m512i, i32, __mmask16> for Equal<i32> {
+    #[inline(always)]
     fn compare(&self, value: __m512i, mask: __mmask16) -> __mmask16 {
         unsafe {
             _mm512_mask_cmpeq_epi32_mask(
@@ -70,6 +71,7 @@ impl VectorFilter<__m512i, i32, __mmask16> for Equal<i32> {
 }
 
 impl VectorFilter<__m512i, i64, __mmask8> for Equal<i64> {
+    #[inline(always)]
     fn compare(&self, value: __m512i, mask: __mmask8) -> __mmask8 {
         unsafe {
             _mm512_mask_cmpeq_epi64_mask(

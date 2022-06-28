@@ -52,7 +52,7 @@ mod tests {
         let expected = vec![5];
 
         let row_table = RowTable::new(data);
-        let result = row_table.filter(filters);
+        let result = row_table.filter(&filters);
 
         assert_eq!(result, expected);
     }
@@ -67,7 +67,7 @@ mod tests {
         let expected = vec![5];
 
         let row_table = RowTable::new(data);
-        let result = row_table.filter(filters);
+        let result = row_table.filter(&filters);
 
         assert_eq!(result, expected);
     }
