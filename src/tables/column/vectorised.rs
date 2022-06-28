@@ -64,10 +64,14 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                     }
                 };
 
-                let indices_register_content: [i32; 16] = std::mem::transmute(indices_register);
-                let data_register_content: [i32; 16] = std::mem::transmute(data_register);
-                println!("Indices register: {:?}", indices_register_content);
-                println!("Data register: {:?}", data_register_content);
+                debug!(
+                    "Indices register: {:?}",
+                    std::mem::transmute::<__m512i, [i32; 16]>(indices_register)
+                );
+                debug!(
+                    "Data register: {:?}",
+                    std::mem::transmute::<__m512i, [i32; 16]>(indices_register)
+                );
 
                 for filter in &filter_for_current_columns {
                     match_mask = filter.compare(data_register, match_mask);
@@ -79,7 +83,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                     match_mask,
                     indices_register,
                 );
-                println!("Current indices: {:?}", indices);
+                debug!("Current indices: {:?}", indices);
 
                 let added = _mm512_mask_reduce_add_epi32(match_mask, ones_register) as usize;
                 new_indices_counter += added;
