@@ -1,11 +1,10 @@
 #![feature(stdsimd)]
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, SamplingMode};
 use mem::{
-    generate_data, ColumnTable, Equal, GreaterEqual, RowTable, ScalarFilters, ScalarQuery, Table,
-    VectorFilters, VectorisedQuery,
+    generate_random_data, ColumnTable, Equal, GreaterEqual, RowTable, ScalarFilters, ScalarQuery,
+    Table, VectorFilters, VectorisedQuery,
 };
 use pprof::criterion::{Output, PProfProfiler};
-use rand::prelude::*;
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
@@ -13,24 +12,9 @@ use std::arch::x86::*;
 use std::arch::x86_64::*;
 use std::time::Duration;
 
-// fn generate_random_data<T: Sized + Copy + From<i32>, const ATTRS: usize>(
-//     rows: u32,
-// ) -> Vec<[T; ATTRS]> {
-//     let mut data: Vec<[T; ATTRS]> = Vec::new();
-
-//     for _ in 0..=rows - 1 {
-//         let mut row: [T; ATTRS] = [0.into(); ATTRS];
-//         for i in 0..ATTRS {
-//             row[i] = rand::random::<i32>().into();
-//         }
-//         data.push(row);
-//     }
-
-//     data
-// }
-
 fn bench_tables(c: &mut Criterion) {
     let mut group = c.benchmark_group("ColumnTable");
+    group.sampling_mode(SamplingMode::Flat);
 
     let scalar_filters: ScalarFilters<i32, i32> = vec![
         Box::new(Equal::<i32>::new(0, 5)),
@@ -41,14 +25,14 @@ fn bench_tables(c: &mut Criterion) {
         Box::new(GreaterEqual::<i32>::new(1, 3)),
     ];
 
-    let row_counts = [100_000, 1_000_000];
+    let row_counts = [100, 100_000, 1_000_000];
 
     for rows in row_counts.iter() {
         group.bench_with_input(
             BenchmarkId::new("ColumnTable Scalar", rows),
             rows,
             |b, rows| {
-                let data = generate_data::<i32, 3>(rows.clone());
+                let data = generate_random_data::<3>(rows);
                 let table = ColumnTable::new(data);
 
                 b.iter(|| {
@@ -61,7 +45,7 @@ fn bench_tables(c: &mut Criterion) {
             BenchmarkId::new("ColumnTable AVX", rows),
             rows,
             |b, rows| {
-                let data = generate_data::<i32, 3>(rows.clone());
+                let data = generate_random_data::<3>(rows);
                 let table = ColumnTable::new(data);
 
                 b.iter(|| {
@@ -74,7 +58,7 @@ fn bench_tables(c: &mut Criterion) {
             BenchmarkId::new("RowTable Scalar", rows),
             rows,
             |b, rows| {
-                let data = generate_data::<i32, 3>(rows.clone());
+                let data = generate_random_data::<3>(rows);
                 let table = RowTable::new(data);
 
                 b.iter(|| {
@@ -93,7 +77,7 @@ fn bench_tables(c: &mut Criterion) {
 // }
 criterion_group! {
     name = benches;
-    config = Criterion::default().warm_up_time(Duration::from_secs(1)).measurement_time(Duration::from_secs(5)).sample_size(50);
+    config = Criterion::default().warm_up_time(Duration::from_secs(1)).measurement_time(Duration::from_secs(2)).sample_size(20);
     targets = bench_tables
 }
 criterion_main!(benches);
