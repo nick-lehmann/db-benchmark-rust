@@ -21,5 +21,6 @@ pprof = { version = "0.10.0", features = ["criterion", "flamegraph"] }
 name = "tables"
 harness = false
 
-[profile.dev]
-rustflags = ["-C", "no-vectorize-loops", "-C", "no-vectorize-slp"]
+[profile.bench]
+rustflags = ["-Cno-vectorize-loops", "-Cno-vectorize-slp"]
+opt-level = 3

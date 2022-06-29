@@ -25,7 +25,14 @@ fn bench_tables(c: &mut Criterion) {
         Box::new(GreaterEqual::<i32>::new(1, 3)),
     ];
 
-    let row_counts = [100, 100_000, 1_000_000];
+    let chunk_size = 16;
+    let row_counts = [
+        // chunk_size,
+        // chunk_size * 10,
+        // chunk_size * 100,
+        // chunk_size * 1_000,
+        chunk_size * 10_000,
+    ];
 
     for rows in row_counts.iter() {
         group.bench_with_input(
@@ -67,6 +74,15 @@ fn bench_tables(c: &mut Criterion) {
                 })
             },
         );
+        group.bench_with_input(BenchmarkId::new("RowTable AVX", rows), rows, |b, rows| {
+            let data = generate_random_data::<3>(rows);
+            let table = RowTable::new(data);
+
+            b.iter(|| {
+                let indices = unsafe { VectorisedQuery::filter(&table, &vector_filters) };
+                return indices;
+            })
+        });
     }
 }
 

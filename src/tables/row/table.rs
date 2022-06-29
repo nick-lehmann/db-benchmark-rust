@@ -2,7 +2,7 @@ use crate::tables::Table;
 use std::ops::Index;
 
 pub struct RowTable<T, const ATTRS: usize> {
-    data: Vec<[T; ATTRS]>,
+    pub data: Vec<[T; ATTRS]>,
 }
 
 impl<T, const ATTRS: usize> Index<usize> for RowTable<T, ATTRS> {

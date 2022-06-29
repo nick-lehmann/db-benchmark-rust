@@ -49,9 +49,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                     }
                     false => {
                         // This line is why we added `chunk_size` elements to the end of `indices`.
-                        let indices_block =
-                            &indices[new_indices_counter..new_indices_counter + chunk_size];
-                        let indices_register = create_indices_register32_from_slice(indices_block);
+                        let indices_register = _mm512_loadu_si512(&indices[index]);
                         let data_register = _mm512_i32gather_epi32::<4>(
                             indices_register,
                             &column[0] as *const _ as *const u8,
