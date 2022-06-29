@@ -1,8 +1,0 @@
-dev
-17,280,426ns
-
-release (default)
-11,700ns
-
-release (no-vector)
-504,406ns
