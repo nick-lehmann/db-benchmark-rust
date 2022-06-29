@@ -44,7 +44,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                 let (indices_register, data_register) = match first_run {
                     true => {
                         let indices_register = create_indices_register32(index as i32);
-                        let data_register = _mm512_loadu_si512(&column[0]);
+                        let data_register = _mm512_loadu_si512(&column[index]);
                         (indices_register, data_register)
                     }
                     false => {
@@ -66,7 +66,7 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
                 );
                 debug!(
                     "Data register: {:?}",
-                    std::mem::transmute::<__m512i, [i32; 16]>(indices_register)
+                    std::mem::transmute::<__m512i, [i32; 16]>(data_register)
                 );
 
                 let remaining_elements = rows - index;
@@ -90,7 +90,11 @@ impl<const ATTRS: usize> VectorisedQuery<i32> for ColumnTable<i32, ATTRS> {
 
                 let added = _mm512_mask_reduce_add_epi32(match_mask, ones_register) as usize;
                 new_indices_counter += added;
-                first_run = false;
+            }
+            first_run = false;
+
+            if new_indices_counter == 0 {
+                return vec![];
             }
             indices_counter = new_indices_counter;
         }
@@ -104,6 +108,7 @@ mod tests {
     use crate::{
         data::generate_data,
         filters::{Equal, GreaterEqual, LessEqual, VectorFilters},
+        generate_random_data,
         tables::{ColumnTable, Table, VectorisedQuery},
     };
 
@@ -113,11 +118,60 @@ mod tests {
     use std::arch::x86_64::*;
 
     #[test]
+    fn test_random_data() {
+        let chunk_size = 16;
+        let lengths = [chunk_size, 10_000];
+        // let lengths = [10_000];
+
+        for length in lengths {
+            let data = generate_random_data::<3>(&length);
+            // println!("{:?}", data);
+            let filters: VectorFilters<__m512i, i32, __mmask16> = vec![
+                Box::new(Equal::<i32>::new(0, 1126014292)),
+                Box::new(LessEqual::<i32>::new(0, 2000000000)),
+            ];
+            let expected = vec![3];
+
+            let table = ColumnTable::<i32, 3>::new(data);
+            let result = unsafe { table.filter(&filters) };
+
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn test_empty_return_after_first_run() {
+        let data = generate_random_data::<3>(&10_000);
+        let table = ColumnTable::<i32, 3>::new(data);
+
+        let filters: VectorFilters<__m512i, i32, __mmask16> =
+            vec![Box::new(Equal::<i32>::new(0, i32::MAX))];
+        let result = unsafe { table.filter(&filters) };
+
+        assert_eq!(result.len(), 0);
+    }
+
+    /// Test a correct abort if the second filter discards all indices found by the first.
+    #[test]
+    fn test_empty_return_after_second_run() {
+        let data = generate_random_data::<3>(&10_000);
+        let table = ColumnTable::<i32, 3>::new(data);
+
+        let filters: VectorFilters<__m512i, i32, __mmask16> = vec![
+            Box::new(GreaterEqual::<i32>::new(0, 0)),
+            Box::new(Equal::<i32>::new(0, i32::MAX)),
+        ];
+        let result = unsafe { table.filter(&filters) };
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
     fn test_basic_filters() {
         let chunk_size = 16;
-        // let lengths = [chunk_size / 2, chunk_size - 1, chunk_size, 1_000_000];
+        let lengths = [chunk_size / 2, chunk_size - 1, chunk_size, 1_000_000];
         // let lengths = [chunk_size, 1_000_000];
-        let lengths = [chunk_size];
+        // let lengths = [chunk_size]
 
         for length in lengths {
             let data = generate_data::<i32, 3>(length);
@@ -125,8 +179,8 @@ mod tests {
                 vec![Box::new(LessEqual::<i32>::new(0, 1))];
             let expected = vec![0, 1];
 
-            let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.filter(&filters) };
+            let table = ColumnTable::<i32, 3>::new(data);
+            let result = unsafe { table.filter(&filters) };
 
             assert_eq!(result, expected);
         }
@@ -146,8 +200,8 @@ mod tests {
             ];
             let expected = vec![2];
 
-            let row_table = ColumnTable::<i32, 3>::new(data);
-            let result = unsafe { row_table.filter(&filters) };
+            let table = ColumnTable::<i32, 3>::new(data);
+            let result = unsafe { table.filter(&filters) };
 
             assert_eq!(result, expected);
         }

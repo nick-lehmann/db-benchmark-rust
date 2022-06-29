@@ -6,7 +6,7 @@ mod data;
 mod filters;
 mod tables;
 
-pub use data::generate_data;
+pub use data::{generate_data, generate_random_data};
 pub use filters::{
     Equal, GreaterEqual, LessEqual, ScalarFilter, ScalarFilters, VectorFilter, VectorFilters,
 };
