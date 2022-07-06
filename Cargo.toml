@@ -24,3 +24,7 @@ harness = false
 [profile.bench]
 rustflags = ["-Cno-vectorize-loops", "-Cno-vectorize-slp"]
 opt-level = 3
+
+[profile.release]
+rustflags = ["-Cno-vectorize-loops", "-Cno-vectorize-slp"]
+opt-level = 3
