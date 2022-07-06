@@ -13,7 +13,7 @@ use std::arch::x86_64::*;
 use std::time::Duration;
 
 fn bench_tables(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ColumnTable");
+    let mut group = c.benchmark_group("Tables");
     group.sampling_mode(SamplingMode::Flat);
 
     let scalar_filters: ScalarFilters<i32, i32> = vec![
@@ -29,57 +29,41 @@ fn bench_tables(c: &mut Criterion) {
     let row_counts = [
         // chunk_size,
         // chunk_size * 10,
-        // chunk_size * 100,
-        // chunk_size * 1_000,
+        chunk_size * 100,
+        chunk_size * 1_000,
         chunk_size * 10_000,
     ];
 
     for rows in row_counts.iter() {
+        let data = generate_random_data::<3>(rows);
+        let row_table = RowTable::new(data.clone());
+        let column_table = ColumnTable::new(data.clone());
+
         group.bench_with_input(
             BenchmarkId::new("ColumnTable Scalar", rows),
             rows,
-            |b, rows| {
-                let data = generate_random_data::<3>(rows);
-                let table = ColumnTable::new(data);
-
+            |b, _| {
                 b.iter(|| {
-                    let indices = ScalarQuery::filter(&table, &scalar_filters);
+                    let indices = ScalarQuery::filter(&column_table, &scalar_filters);
                     return indices;
                 })
             },
         );
-        group.bench_with_input(
-            BenchmarkId::new("ColumnTable AVX", rows),
-            rows,
-            |b, rows| {
-                let data = generate_random_data::<3>(rows);
-                let table = ColumnTable::new(data);
-
-                b.iter(|| {
-                    let indices = unsafe { VectorisedQuery::filter(&table, &vector_filters) };
-                    return indices;
-                })
-            },
-        );
-        group.bench_with_input(
-            BenchmarkId::new("RowTable Scalar", rows),
-            rows,
-            |b, rows| {
-                let data = generate_random_data::<3>(rows);
-                let table = RowTable::new(data);
-
-                b.iter(|| {
-                    let indices = ScalarQuery::filter(&table, &scalar_filters);
-                    return indices;
-                })
-            },
-        );
-        group.bench_with_input(BenchmarkId::new("RowTable AVX", rows), rows, |b, rows| {
-            let data = generate_random_data::<3>(rows);
-            let table = RowTable::new(data);
-
+        group.bench_with_input(BenchmarkId::new("ColumnTable AVX", rows), rows, |b, _| {
             b.iter(|| {
-                let indices = unsafe { VectorisedQuery::filter(&table, &vector_filters) };
+                let indices = unsafe { VectorisedQuery::filter(&column_table, &vector_filters) };
+                return indices;
+            })
+        });
+        group.bench_with_input(BenchmarkId::new("RowTable Scalar", rows), rows, |b, _| {
+            b.iter(|| {
+                let indices = ScalarQuery::filter(&row_table, &scalar_filters);
+                return indices;
+            })
+        });
+        group.bench_with_input(BenchmarkId::new("RowTable AVX", rows), rows, |b, _| {
+            b.iter(|| {
+                let indices = unsafe { VectorisedQuery::filter(&row_table, &vector_filters) };
                 return indices;
             })
         });
@@ -88,7 +72,7 @@ fn bench_tables(c: &mut Criterion) {
 
 // criterion_group! {
 //     name = benches;
-//     config = Criterion::default().warm_up_time(Duration::from_secs(1)).measurement_time(Duration::from_secs(10)).sample_size(50).with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+//     config = Criterion::default().warm_up_time(Duration::from_secs(1)).measurement_time(Duration::from_secs(5)).sample_size(50).with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
 //     targets = bench_tables
 // }
 criterion_group! {
