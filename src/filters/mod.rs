@@ -35,13 +35,3 @@ pub trait Filter<Value>:
 }
 
 impl<T> Filter<i32> for T where T: ScalarFilter<i32, i32> + VectorFilter<__m512i, i32, __mmask16> {}
-
-fn test() {
-    let filters: Vec<Box<dyn Filter<i32>>> = vec![
-        Box::new(Equal::<i32>::new(0, 1126014292)),
-        Box::new(LessEqual::<i32>::new(0, 2000000000)),
-    ];
-
-    let filter = filters.get(0).unwrap();
-    let x = ScalarFilter::compare(filter, 4);
-}
